@@ -1,9 +1,8 @@
-version: '3.8'
-
 services:
   postgres:
-    image: postgres:16-alpine
-    container_name: foodrush_postgres
+    image: postgres:17-alpine
+    container_name: foodrush-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: foodrush_db
       POSTGRES_USER: postgres
@@ -11,30 +10,40 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-    networks:
-      - foodrush-net
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d foodrush_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: foodrush_redis
+    container_name: foodrush-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
-    networks:
-      - foodrush-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   rabbitmq:
-    image: rabbitmq:3.13-management-alpine
-    container_name: foodrush_rabbitmq
+    image: rabbitmq:4-management-alpine
+    container_name: foodrush-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     ports:
       - "5672:5672"
-      - "15672:15672" # Painel gerencial (guest/guest)
-    networks:
-      - foodrush-net
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  pgdata:
-
-networks:
-  foodrush-net:
-    driver: bridge
+  postgres_data:

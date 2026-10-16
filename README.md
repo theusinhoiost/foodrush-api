@@ -31,13 +31,18 @@ foodrush-api/
 ├── src/
 │   ├── main/
 │   │   ├── java/com/foodrush/api/
+│   │   │   ├── enums/
+│   │   │   ├── model/
+│   │   │   ├── repository/
 │   │   │   └── ApiApplication.java
 │   │   └── resources/
-│   │       ├── db/migration/        # Scripts de migração do Flyway
-│   │       └── application.properties
+│   │       ├── db/migration/
+│   │       │   └── V1__init_schema.sql
+│   │       └── application.yml
 │   └── test/
 │       └── java/com/foodrush/api/
 │           └── ApiApplicationTests.java
+├── docker-compose.yml
 ├── pom.xml
 ├── mvnw
 └── mvnw.cmd
@@ -51,8 +56,10 @@ foodrush-api/
    cd foodrush-api
    ```
 
-2. **Configure as variáveis de ambiente / `application.properties`:**
-   Ajuste as conexões de banco de dados (PostgreSQL), Redis e RabbitMQ em `src/main/resources/application.properties` (ou via variáveis de ambiente).
+2. **Suba os serviços de infraestrutura (PostgreSQL, Redis e RabbitMQ):**
+   ```bash
+   docker compose up -d
+   ```
 
 3. **Compile o projeto:**
    ```bash
@@ -63,6 +70,7 @@ foodrush-api/
    ```bash
    ./mvnw spring-boot:run
    ```
+   Ou execute diretamente a classe `com.foodrush.api.ApiApplication` pela IDE. A API estará disponível em `http://localhost:8080/api/v1`.
 
 ## Executando os Testes
 
