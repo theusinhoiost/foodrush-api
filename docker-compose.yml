@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: foodrush_postgres
+    environment:
+      POSTGRES_DB: foodrush_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - foodrush-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: foodrush_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - foodrush-net
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: foodrush_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672" # Painel gerencial (guest/guest)
+    networks:
+      - foodrush-net
+
+volumes:
+  pgdata:
+
+networks:
+  foodrush-net:
+    driver: bridge
