@@ -11,13 +11,18 @@ import lombok.*;
 @Table(name = "restaurants")
 @Getter
 @Setter
+@AllArgsConstructor
 @EqualsAndHashCode(of = "id")
+@Builder
 public class Restaurant {
 
   @Id
   @GeneratedValue(strategy = GenerationType.UUID)
   @Column(name = "id", updatable = false, nullable = false)
   private UUID id;
+
+  @Column(name = "owner_id", nullable = false)
+  private UUID ownerId;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "owner_id", nullable = false)
@@ -28,6 +33,9 @@ public class Restaurant {
 
   @Column(name = "cnpj", length = 14, nullable = false, unique = true)
   private String cnpj;
+
+  @Column(name = "phone", length = 20, nullable = false)
+  private String phone;
 
   @Column(
     name = "base_delivery_fee",
