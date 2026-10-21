@@ -2,6 +2,9 @@ package com.foodrush.api.security;
 
 import com.foodrush.api.model.User;
 import com.foodrush.api.repository.UserRepository;
+
+import jakarta.transaction.Transactional;
+
 import java.util.Collections;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -10,6 +13,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 @Service
+@Transactional
 public class UserDetailsServiceImpl implements UserDetailsService {
 
   private final UserRepository userRepository;

@@ -25,6 +25,7 @@ CREATE TABLE restaurants (
     owner_id UUID NOT NULL,
     trade_name VARCHAR(120) NOT NULL,
     cnpj VARCHAR(14) NOT NULL UNIQUE,
+    phone VARCHAR(20) NOT NULL,
     base_delivery_fee DECIMAL(10, 2) NOT NULL,
     latitude DECIMAL(9, 6) NOT NULL,
     longitude DECIMAL(9, 6) NOT NULL,
