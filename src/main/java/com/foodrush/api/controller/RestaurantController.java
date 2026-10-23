@@ -3,6 +3,14 @@ package com.foodrush.api.controller;
 import com.foodrush.api.dto.request.RestaurantRequestDTO;
 import com.foodrush.api.dto.response.RestaurantResponseDTO;
 import com.foodrush.api.service.RestaurantService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
@@ -12,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/restaurants")
+@Tag(name = "Restaurantes", description = "Gerenciamento de perfil, geolocalização e status operacional dos restaurantes")
 public class RestaurantController {
 
   private final RestaurantService restaurantService;
@@ -20,7 +29,18 @@ public class RestaurantController {
     this.restaurantService = restaurantService;
   }
 
-  @PostMapping
+@PostMapping
+    @Operation(
+        summary = "Cadastrar um novo restaurante",
+        description = "Cria um novo estabelecimento comercial informando dados cadastrais, CNPJ e coordenadas geográficas (latitude/longitude) para cálculo de frete.",
+        security = @SecurityRequirement(name = "bearerAuth") // Se o endpoint exigir JWT
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "201", description = "Restaurante criado com sucesso",
+            content = @Content(schema = @Schema(implementation = RestaurantResponseDTO.class))),
+        @ApiResponse(responseCode = "400", description = "Dados inválidos enviados no payload"),
+        @ApiResponse(responseCode = "409", description = "CNPJ já cadastrado no sistema")
+    })
   public ResponseEntity<RestaurantResponseDTO> create(
     @RequestBody @Valid RestaurantRequestDTO dto
   ) {

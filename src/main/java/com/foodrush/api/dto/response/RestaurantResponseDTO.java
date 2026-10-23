@@ -18,7 +18,7 @@ public record RestaurantResponseDTO(
     public static RestaurantResponseDTO fromEntity(Restaurant restaurant) {
         return new RestaurantResponseDTO(
                 restaurant.getId(),
-                restaurant.getOwnerId(),
+                restaurant.getOwner().getId(),
                 restaurant.getTradeName(),
                 restaurant.getCnpj(),
                 restaurant.getBaseDeliveryFee(),

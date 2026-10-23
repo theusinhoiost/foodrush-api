@@ -9,53 +9,70 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final JwtTokenProvider tokenProvider;
-    private final UserDetailsService userDetailsService;
+  private final JwtTokenProvider tokenProvider;
+  private final UserDetailsService userDetailsService;
 
-    public SecurityConfig(JwtTokenProvider tokenProvider, UserDetailsService userDetailsService) {
-        this.tokenProvider = tokenProvider;
-        this.userDetailsService = userDetailsService;
-    }
+  public SecurityConfig(
+    JwtTokenProvider tokenProvider,
+    UserDetailsService userDetailsService
+  ) {
+    this.tokenProvider = tokenProvider;
+    this.userDetailsService = userDetailsService;
+  }
 
-    @Bean
-    public JwtAuthenticationFilter jwtAuthenticationFilter() {
-        return new JwtAuthenticationFilter(tokenProvider, userDetailsService);
-    }
+  @Bean
+  public JwtAuthenticationFilter jwtAuthenticationFilter() {
+    return new JwtAuthenticationFilter(tokenProvider, userDetailsService);
+  }
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+  @Bean
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
 
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
-        return authConfig.getAuthenticationManager();
-    }
+  @Bean
+  public AuthenticationManager authenticationManager(
+    AuthenticationConfiguration authConfig
+  ) throws Exception {
+    return authConfig.getAuthenticationManager();
+  }
 
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .anyRequest().authenticated()
-                );
+  @Bean
+  public SecurityFilterChain securityFilterChain(HttpSecurity http)
+    throws Exception {
+    http
+      // Se a sua API for puramente stateless (JWT), geralmente o CSRF é desabilitado:
+      .csrf(csrf -> csrf.disable())
+      .authorizeHttpRequests(auth ->
+        auth
+          // Rotas públicas da sua aplicação (Auth, etc)
+          .requestMatchers("/api/v1/auth/**")
+          .permitAll()
+          // LIBERAÇÕES DO SWAGGER / OPENAPI (Caminhos essenciais)
+          .requestMatchers(
+            "/v3/api-docs/**",
+            "/swagger-ui/**",
+            "/swagger-ui.html",
+            "/api/v1/docs/**",
+            "/docs/**"
+          )
+          .permitAll()
+          // Qualquer outra rota exige autenticação com Bearer Token
+          .anyRequest()
+          .authenticated()
+      );
 
-        http.addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
-
-        return http.build();
-    }
+    return http.build();
+  }
 }

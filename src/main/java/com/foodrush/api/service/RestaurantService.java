@@ -52,7 +52,7 @@ public class RestaurantService {
       );
 
     Restaurant restaurant = Restaurant.builder()
-      .ownerId(owner.getId())
+      .owner(owner)
       .tradeName(dto.tradeName())
       .cnpj(dto.cnpj())
       .phone(dto.phone())
@@ -122,7 +122,7 @@ public class RestaurantService {
         )
       );
 
-    restaurant.setOwnerId(owner.getId());
+    restaurant.setOwner(owner);
     restaurant.setTradeName(dto.tradeName());
     restaurant.setCnpj(dto.cnpj());
     restaurant.setBaseDeliveryFee(dto.baseDeliveryFee());
@@ -153,7 +153,7 @@ public class RestaurantService {
         if (dto.ownerId() != null) {
             User owner = userRepository.findById(dto.ownerId())
                     .orElseThrow(() -> new BusinessException("Proprietário (User) não encontrado com o ID informado."));
-            restaurant.setOwnerId(owner.getId());
+            restaurant.setOwner(owner);
         }
 
         if (dto.baseDeliveryFee() != null) {
