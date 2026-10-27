@@ -41,3 +41,10 @@ logging:
   level:
     com.foodrush.api: DEBUG
     org.springframework.security: DEBUG
+
+springdoc:
+  api-docs:
+    path: /docs/json     
+  swagger-ui:
+    path: /docs         
+    disable-swagger-default-url: true
