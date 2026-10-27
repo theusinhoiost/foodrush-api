@@ -11,18 +11,13 @@ import lombok.*;
 @Table(name = "restaurants")
 @Getter
 @Setter
-@AllArgsConstructor
 @EqualsAndHashCode(of = "id")
-@Builder
 public class Restaurant {
 
   @Id
   @GeneratedValue(strategy = GenerationType.UUID)
   @Column(name = "id", updatable = false, nullable = false)
   private UUID id;
-
-  @Column(name = "owner_id", nullable = false)
-  private UUID ownerId;
 
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "owner_id", nullable = false)
@@ -51,6 +46,14 @@ public class Restaurant {
   @Column(name = "longitude", precision = 9, scale = 6, nullable = false)
   private BigDecimal longitude;
 
+  @OneToOne(
+    fetch = FetchType.LAZY,
+    cascade = CascadeType.ALL,
+    orphanRemoval = true
+  )
+  @JoinColumn(name = "address_id")
+  private Address address;
+
   @Column(name = "is_open", nullable = false)
   private Boolean isOpen = false;
 
@@ -69,9 +72,11 @@ public class Restaurant {
     User owner,
     String tradeName,
     String cnpj,
+    String phone,
     BigDecimal baseDeliveryFee,
     BigDecimal latitude,
     BigDecimal longitude,
+    Address address,
     Boolean isOpen,
     List<MenuItem> menuItems
   ) {
@@ -79,9 +84,11 @@ public class Restaurant {
     this.owner = owner;
     this.tradeName = tradeName;
     this.cnpj = cnpj;
+    this.phone = phone;
     this.baseDeliveryFee = baseDeliveryFee;
     this.latitude = latitude;
     this.longitude = longitude;
+    this.address = address;
     this.isOpen = isOpen != null ? isOpen : false;
     this.menuItems = menuItems != null ? menuItems : new ArrayList<>();
   }

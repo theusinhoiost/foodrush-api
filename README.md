@@ -1,6 +1,6 @@
 # FoodRush API
 
-API RESTful de delivery de comida (**FoodRush**), construída com **Java 25** e **Spring Boot 4.1.1**, focada em alta concorrência, consistência transacional, segurança stateless via JWT e arquitetura orientada a eventos.
+API RESTful de delivery de comida (**FoodRush**), construída com **Java 25** e **Spring Boot 4.1.1**, focada em alta concorrência, consistência transacional, cache distribuído com Redis, segurança stateless via JWT e arquitetura orientada a eventos.
 
 ## Stack Tecnológica
 
@@ -10,13 +10,15 @@ API RESTful de delivery de comida (**FoodRush**), construída com **Java 25** e 
   - Spring Data JPA / Hibernate (`spring-boot-starter-data-jpa`)
   - PostgreSQL 17 (`org.postgresql:postgresql`)
   - Flyway Migrations (`spring-boot-starter-flyway`, `flyway-database-postgresql`)
-- **Cache & NoSQL:** Spring Data Redis (`spring-boot-starter-data-redis`)
+- **Cache & NoSQL:** Spring Cache (`spring-boot-starter-cache`) & Spring Data Redis (`spring-boot-starter-data-redis`)
 - **Mensageria:** Spring AMQP / RabbitMQ (`spring-boot-starter-amqp`)
 - **Segurança & Autenticação:**
   - Spring Security (`spring-boot-starter-security`)
   - JSON Web Token — JJWT `0.12.6` (`jjwt-api`, `jjwt-impl`, `jjwt-jackson`) com assinatura `HS512` e senhas criptografadas via `BCrypt`
+- **Documentação da API (OpenAPI / Swagger):**
+  - SpringDoc OpenAPI `2.8.5` (`springdoc-openapi-starter-webmvc-ui`) com suporte a autenticação Bearer JWT
 - **Validação & Tratamento de Erros:**
-  - Jakarta Bean Validation (`spring-boot-starter-validation`)
+  - Jakarta Bean Validation (`spring-boot-starter-validation`) + validadores customizados (`@ValidCPF`, `@ValidCNPJ`, `@ValidPhone`)
   - Respostas padronizadas com **RFC 7807 (`ProblemDetail`)** via `GlobalExceptionHandler`
 - **Produtividade & Build:** Lombok, Spring Boot Configuration Processor e Apache Maven (`./mvnw`)
 
@@ -33,16 +35,21 @@ foodrush-api/
 │   ├── main/
 │   │   ├── java/com/foodrush/api/
 │   │   │   ├── config/
+│   │   │   │   ├── OpenApiConfig.java
 │   │   │   │   └── SecurityConfig.java
 │   │   │   ├── controller/
-│   │   │   │   └── AuthController.java
+│   │   │   │   ├── AuthController.java
+│   │   │   │   └── RestaurantController.java
 │   │   │   ├── dto/
 │   │   │   │   ├── request/
 │   │   │   │   │   ├── LoginRequestDTO.java
 │   │   │   │   │   ├── RefreshTokenRequestDTO.java
+│   │   │   │   │   ├── RestaurantPatchRequestDTO.java
+│   │   │   │   │   ├── RestaurantRequestDTO.java
 │   │   │   │   │   └── UserRequestDTO.java
 │   │   │   │   └── response/
 │   │   │   │       ├── AuthResponseDTO.java
+│   │   │   │       ├── RestaurantResponseDTO.java
 │   │   │   │       └── UserResponseDTO.java
 │   │   │   ├── enums/
 │   │   │   │   ├── OrderStatus.java
@@ -72,6 +79,15 @@ foodrush-api/
 │   │   │   │   ├── JwtAuthenticationFilter.java
 │   │   │   │   ├── JwtTokenProvider.java
 │   │   │   │   └── UserDetailsServiceImpl.java
+│   │   │   ├── service/
+│   │   │   │   └── RestaurantService.java
+│   │   │   ├── validation/
+│   │   │   │   ├── CnpjValidatorConstraint.java
+│   │   │   │   ├── CpfValidatorConstraint.java
+│   │   │   │   ├── PhoneValidatorConstraint.java
+│   │   │   │   ├── ValidCNPJ.java
+│   │   │   │   ├── ValidCPF.java
+│   │   │   │   └── ValidPhone.java
 │   │   │   └── ApiApplication.java
 │   │   └── resources/
 │   │       ├── db/migration/
@@ -89,7 +105,7 @@ foodrush-api/
 ## Modelo de Dados (Flyway `V1__init_schema.sql`)
 
 - **`users`**: Credenciais, identificadores únicos (`email`, `phone`, `cpf`) e perfis de acesso (`CUSTOMER`, `RESTAURANT_OWNER`, `DELIVERY_DRIVER`, `ADMIN`).
-- **`restaurants`**: Dados do restaurante (`trade_name`, `cnpj`), geolocalização (`latitude`, `longitude`), taxa base de entrega e status de funcionamento (`is_open`).
+- **`restaurants`**: Dados do restaurante (`trade_name`, `cnpj`, `phone`), vínculo com o proprietário (`owner_id`), geolocalização (`latitude`, `longitude`), taxa base de entrega (`base_delivery_fee`) e status de funcionamento (`is_open`).
 - **`menu_items` & `menu_item_sizes`**: Itens do cardápio e variações de tamanho/porção com controle de estoque e concorrência (`version` para lock otimista e query com `PESSIMISTIC_WRITE` para evitar *overselling*).
 - **`complement_groups` & `complement_items`**: Grupos de complementos/adicionais com regras de quantidade mínima/máxima e obrigatoriedade.
 - **`orders`, `order_items` & `order_item_complements`**: Pedidos com chave de idempotência (`idempotency_key`), valores consolidados (`subtotal`, `delivery_fee`, `total`), itens e snapshot histórico de complementos.
@@ -128,15 +144,33 @@ foodrush-api/
    ```
    Ou execute diretamente a classe `com.foodrush.api.ApiApplication` pela IDE.
 
-## Endpoints de Autenticação
+## Documentação Interativa (Swagger / OpenAPI)
+
+Com a aplicação em execução, acesse a interface do **Swagger UI** em:
+
+- **Swagger UI (Restaurantes / Create):** [http://localhost:8080/api/v1/swagger-ui/index.html#/restaurant-controller/create](http://localhost:8080/api/v1/swagger-ui/index.html#/restaurant-controller/create)
+- **Atalho Swagger UI:** `http://localhost:8080/api/v1/docs`
+- **OpenAPI JSON Spec:** `http://localhost:8080/api/v1/docs/json`
+
+## Endpoints da API
+
+### Autenticação (`/api/v1/auth`)
 
 | Método | Rota | Descrição | Autenticação |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/auth/register` | Cadastro de novo usuário (`UserRequestDTO`) | Pública |
+| `POST` | `/api/v1/auth/register` | Cadastro de novo usuário (`UserRequestDTO` com validação `@ValidCPF` e `@ValidPhone`) | Pública |
 | `POST` | `/api/v1/auth/login` | Autenticação e emissão de `accessToken` + `refreshToken` (`LoginRequestDTO`) | Pública |
 | `POST` | `/api/v1/auth/refresh` | Renovação do `accessToken` via `refreshToken` (`RefreshTokenRequestDTO`) | Pública |
 
-> **Nota:** Como o `server.servlet.context-path` está configurado como `/api/v1` no `application.yml` e o `AuthController` mapeia `/api/v1/auth`, a URL completa em execução é `http://localhost:8080/api/v1/api/v1/auth/...` (ou ajuste o `@RequestMapping` do controller para `/auth` caso deseje `http://localhost:8080/api/v1/auth/...`).
+### Restaurantes (`/api/v1/restaurants`)
+
+| Método | Rota | Descrição | Autenticação |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/v1/restaurants` | Cadastra um novo restaurante (`RestaurantRequestDTO` com `@ValidCNPJ` e `@ValidPhone`) | Bearer JWT |
+| `GET` | `/api/v1/restaurants` | Lista todos os restaurantes cadastrados (com suporte a cache `restaurants`) | Bearer JWT |
+| `GET` | `/api/v1/restaurants/{id}` | Busca os detalhes de um restaurante por ID (com suporte a cache `restaurants`) | Bearer JWT |
+| `PUT` | `/api/v1/restaurants/{id}` | Atualiza os dados cadastrais e geolocalização de um restaurante | Bearer JWT |
+| `PATCH` | `/api/v1/restaurants/{id}/toggle-open` | Alterna o status operacional (`isOpen`) do restaurante (aberto/fechado) | Bearer JWT |
 
 ## Executando os Testes
 

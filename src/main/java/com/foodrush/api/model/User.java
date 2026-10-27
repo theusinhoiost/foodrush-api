@@ -41,6 +41,14 @@ public class User {
   @Column(name = "active", nullable = false)
   private Boolean active = true;
 
+  @OneToOne(
+    fetch = FetchType.LAZY,
+    cascade = CascadeType.ALL,
+    orphanRemoval = true
+  )
+  @JoinColumn(name = "address_id")
+  private Address address;
+
   @CreationTimestamp
   @Column(name = "created_at", nullable = false, updatable = false)
   private OffsetDateTime createdAt;
@@ -57,6 +65,7 @@ public class User {
     String cpf,
     RoleType role,
     Boolean active,
+    Address address,
     OffsetDateTime createdAt
   ) {
     this.id = id;
@@ -67,6 +76,7 @@ public class User {
     this.cpf = cpf;
     this.role = role;
     this.active = active != null ? active : true;
+    this.address = address;
     this.createdAt = createdAt;
   }
 
