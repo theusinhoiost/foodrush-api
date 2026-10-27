@@ -1,7 +1,9 @@
 package com.foodrush.api.service;
 
+import com.foodrush.api.dto.request.AddressRequestDTO;
 import com.foodrush.api.dto.request.RestaurantRequestDTO;
 import com.foodrush.api.dto.response.RestaurantResponseDTO;
+import com.foodrush.api.model.Address;
 import com.foodrush.api.model.Restaurant;
 import com.foodrush.api.model.User;
 import com.foodrush.api.repository.RestaurantRepository;
@@ -28,39 +30,58 @@ class RestaurantServiceTest {
     private RestaurantRepository restaurantRepository;
 
     @Mock
-    private UserRepository userRepository; // <-- Adicionado o mock do repositório de usuários
+    private UserRepository userRepository;
+
+    @Mock
+    private GeocodingService geocodingService;
 
     @InjectMocks
     private RestaurantService restaurantService;
 
     @Test
-    @DisplayName("Deve cadastrar um restaurante com sucesso quando os dados forem válidos")
+    @DisplayName("Deve cadastrar um restaurante com sucesso resolvendo endereço e coordenadas pelo CEP")
     void shouldCreateRestaurantSuccessfully() {
         // Arrange (Cenário)
         UUID ownerId = UUID.randomUUID();
+        AddressRequestDTO addressDTO = new AddressRequestDTO(
+                "01001-000",
+                "100",
+                "Loja 1"
+        );
         RestaurantRequestDTO requestDTO = new RestaurantRequestDTO(
                 ownerId,
                 "Burger King - Centro",
                 "48555407000133",
                 "11999998888",
                 new BigDecimal("5.00"),
-                new BigDecimal("-22.400000"),
-                new BigDecimal("-47.550000")
+                addressDTO
         );
 
         User ownerMock = new User();
         ownerMock.setId(ownerId);
+
+        Address resolvedAddress = new Address();
+        resolvedAddress.setId(UUID.randomUUID());
+        resolvedAddress.setCep("01001000");
+        resolvedAddress.setStreet("Praça da Sé");
+        resolvedAddress.setNumber("100");
+        resolvedAddress.setNeighborhood("Sé");
+        resolvedAddress.setCity("São Paulo");
+        resolvedAddress.setState("SP");
+        resolvedAddress.setLatitude(new BigDecimal("-23.550520"));
+        resolvedAddress.setLongitude(new BigDecimal("-46.633309"));
 
         Restaurant restaurantMock = new Restaurant();
         restaurantMock.setId(UUID.randomUUID());
         restaurantMock.setTradeName(requestDTO.tradeName());
         restaurantMock.setIsOpen(false);
         restaurantMock.setOwner(ownerMock);
+        restaurantMock.setLatitude(resolvedAddress.getLatitude());
+        restaurantMock.setLongitude(resolvedAddress.getLongitude());
+        restaurantMock.setAddress(resolvedAddress);
 
-        // Simulando que o usuário proprietário existe no banco
         when(userRepository.findById(ownerId)).thenReturn(Optional.of(ownerMock));
-
-        // Simulando o comportamento do salvamento do restaurante
+        when(geocodingService.resolveAddress(addressDTO)).thenReturn(resolvedAddress);
         when(restaurantRepository.save(any(Restaurant.class))).thenReturn(restaurantMock);
 
         // Act (Ação)
@@ -69,9 +90,12 @@ class RestaurantServiceTest {
         // Assert (Validações)
         assertThat(response).isNotNull();
         assertThat(response.tradeName()).isEqualTo("Burger King - Centro");
-        
-        // Garante que ambos os repositórios foram chamados corretamente
+        assertThat(response.address()).isNotNull();
+        assertThat(response.address().street()).isEqualTo("Praça da Sé");
+        assertThat(response.latitude()).isEqualByComparingTo("-23.550520");
+
         verify(userRepository, times(1)).findById(ownerId);
+        verify(geocodingService, times(1)).resolveAddress(addressDTO);
         verify(restaurantRepository, times(1)).save(any(Restaurant.class));
     }
 }

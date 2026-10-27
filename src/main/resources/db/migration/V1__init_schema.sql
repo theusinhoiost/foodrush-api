@@ -1,7 +1,24 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- =========================================================================
--- 1. USERS TABLE
+-- 1. ADDRESSES TABLE
+-- Stores postal code (CEP), street details, and geolocation coordinates
+-- =========================================================================
+CREATE TABLE addresses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    cep VARCHAR(8) NOT NULL,
+    street VARCHAR(150) NOT NULL,
+    number VARCHAR(20) NOT NULL,
+    complement VARCHAR(100),
+    neighborhood VARCHAR(100) NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    state VARCHAR(2) NOT NULL,
+    latitude DECIMAL(9, 6),
+    longitude DECIMAL(9, 6)
+);
+
+-- =========================================================================
+-- 2. USERS TABLE
 -- Stores credentials, personal identifiers (phone, optional CPF), and roles
 -- =========================================================================
 CREATE TABLE users (
@@ -13,11 +30,13 @@ CREATE TABLE users (
     cpf VARCHAR(11) UNIQUE,
     role VARCHAR(20) NOT NULL,
     active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+    address_id UUID,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT fk_users_address FOREIGN KEY (address_id) REFERENCES addresses(id) ON DELETE SET NULL
 );
 
 -- =========================================================================
--- 2. RESTAURANTS TABLE
+-- 3. RESTAURANTS TABLE
 -- Stores restaurant profile, geolocation coordinates, and business status
 -- =========================================================================
 CREATE TABLE restaurants (
@@ -29,8 +48,10 @@ CREATE TABLE restaurants (
     base_delivery_fee DECIMAL(10, 2) NOT NULL,
     latitude DECIMAL(9, 6) NOT NULL,
     longitude DECIMAL(9, 6) NOT NULL,
+    address_id UUID,
     is_open BOOLEAN DEFAULT FALSE NOT NULL,
-    CONSTRAINT fk_restaurants_owner FOREIGN KEY (owner_id) REFERENCES users(id)
+    CONSTRAINT fk_restaurants_owner FOREIGN KEY (owner_id) REFERENCES users(id),
+    CONSTRAINT fk_restaurants_address FOREIGN KEY (address_id) REFERENCES addresses(id) ON DELETE SET NULL
 );
 
 -- =========================================================================

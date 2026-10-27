@@ -14,7 +14,7 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${jwt.secret:minhasenhasecretasuperseguraparajwtfoodrushapi2026jwtkey}")
+    @Value("${jwt.secret:minhasenhasecretasuperseguraparajwtfoodrushapi2026jwtkeyhs512secretkey512bitsminimo}")
     private String jwtSecret;
 
     @Value("${jwt.access-expiration:900000}") // 15 minutos em milissegundos

@@ -8,6 +8,15 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 ## [Unreleased]
 
 ### Added
+- **Endereços, Geolocalização Automática e Seed do Banco (`model/Address`, `service/GeocodingService`, `db/migration/`):**
+  - Unificada a tabela `addresses` e chaves estrangeiras `address_id` (`users` e `restaurants`) diretamente em `V1__init_schema.sql`.
+  - Criada migração `V2__seed_mock_data.sql` com massa de dados inicial (endereços, usuários de todos os perfis com senha `123456`, restaurantes, itens de cardápio, tamanhos, complementos e pedido de exemplo).
+  - Implementada entidade `Address`, `AddressRepository`, DTOs `AddressRequestDTO` (recebendo apenas `cep`, `number` e `complement` opcional) e `AddressResponseDTO`.
+  - Adicionado validador customizado `@ValidCEP` (`CepValidatorConstraint`).
+  - Criado `GeocodingService` integrando via `RestClient` com a **BrasilAPI CEP v2** (e fallback para **OpenStreetMap Nominatim**) para preencher automaticamente rua, bairro, cidade, UF, `latitude` e `longitude` no back-end.
+  - Atualizados `RestaurantService`, `UserService` e `AuthController` para resolverem endereços e coordenadas automaticamente.
+- **Gerenciamento de Usuários (`service/UserService`, `dto/request/UserPatchRequestDTO`):**
+  - Implementado `UserService` com injeção via construtor (`UserRepository` e `PasswordEncoder`), suporte a cache (`@Cacheable` e `@CacheEvict` em `users`) e métodos `create`, `findAll`, `findById`, `update`, `patch` e `toggleActiveStatus` com validações de unicidade de e-mail, telefone e CPF.
 - **Documentação OpenAPI / Swagger (`config/OpenApiConfig`, `pom.xml`, `application.yml`):**
   - Adicionada dependência `springdoc-openapi-starter-webmvc-ui` (`2.8.5`).
   - Criado `OpenApiConfig` definindo metadados da API (`FoodRush API (Delivery Engine)`) e esquema de segurança HTTP Bearer JWT (`bearerAuth`).

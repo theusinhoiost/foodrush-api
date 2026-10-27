@@ -4,6 +4,7 @@ import com.foodrush.api.dto.request.RestaurantPatchRequestDTO;
 import com.foodrush.api.dto.request.RestaurantRequestDTO;
 import com.foodrush.api.dto.response.RestaurantResponseDTO;
 import com.foodrush.api.exception.BusinessException;
+import com.foodrush.api.model.Address;
 import com.foodrush.api.model.Restaurant;
 import com.foodrush.api.model.User;
 import com.foodrush.api.repository.RestaurantRepository;
@@ -11,7 +12,6 @@ import com.foodrush.api.repository.UserRepository;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
-
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -22,15 +22,19 @@ public class RestaurantService {
 
   private final RestaurantRepository restaurantRepository;
   private final UserRepository userRepository;
+  private final GeocodingService geocodingService;
 
   public RestaurantService(
     RestaurantRepository restaurantRepository,
-    UserRepository userRepository
+    UserRepository userRepository,
+    GeocodingService geocodingService
   ) {
     this.restaurantRepository = restaurantRepository;
     this.userRepository = userRepository;
+    this.geocodingService = geocodingService;
   }
-@CacheEvict (value = "restaurants", key = "#id")
+
+  @CacheEvict(value = "restaurants", allEntries = true)
   @Transactional
   public RestaurantResponseDTO create(RestaurantRequestDTO dto) {
     if (restaurantRepository.existsByCnpj(dto.cnpj())) {
@@ -51,14 +55,17 @@ public class RestaurantService {
         )
       );
 
+    Address resolvedAddress = geocodingService.resolveAddress(dto.address());
+
     Restaurant restaurant = Restaurant.builder()
       .owner(owner)
       .tradeName(dto.tradeName())
       .cnpj(dto.cnpj())
       .phone(dto.phone())
       .baseDeliveryFee(dto.baseDeliveryFee())
-      .latitude(dto.latitude())
-      .longitude(dto.longitude())
+      .latitude(resolvedAddress.getLatitude())
+      .longitude(resolvedAddress.getLongitude())
+      .address(resolvedAddress)
       .isOpen(false)
       .build();
 
@@ -66,7 +73,7 @@ public class RestaurantService {
     return RestaurantResponseDTO.fromEntity(savedRestaurant);
   }
 
-@Cacheable(value = "restaurants", key = "#id")
+  @Cacheable(value = "restaurants")
   @Transactional(readOnly = true)
   public List<RestaurantResponseDTO> findAll() {
     return restaurantRepository
@@ -75,7 +82,8 @@ public class RestaurantService {
       .map(RestaurantResponseDTO::fromEntity)
       .collect(Collectors.toList());
   }
-@Cacheable(value = "restaurants", key = "#id")
+
+  @Cacheable(value = "restaurants", key = "#id")
   @Transactional(readOnly = true)
   public RestaurantResponseDTO findById(UUID id) {
     Restaurant restaurant = restaurantRepository
@@ -84,7 +92,7 @@ public class RestaurantService {
     return RestaurantResponseDTO.fromEntity(restaurant);
   }
 
-  @CacheEvict(value = "restaurants", key = "#id")
+  @CacheEvict(value = "restaurants", allEntries = true)
   @Transactional
   public RestaurantResponseDTO toggleOpenStatus(UUID id) {
     Restaurant restaurant = restaurantRepository
@@ -96,14 +104,13 @@ public class RestaurantService {
     return RestaurantResponseDTO.fromEntity(updated);
   }
 
-  @CacheEvict(value = "restaurants", key = "#id")
+  @CacheEvict(value = "restaurants", allEntries = true)
   @Transactional
   public RestaurantResponseDTO update(UUID id, RestaurantRequestDTO dto) {
     Restaurant restaurant = restaurantRepository
       .findById(id)
       .orElseThrow(() -> new BusinessException("Restaurante não encontrado."));
 
-    // Se o CNPJ foi alterado, valida se já não pertence a outro restaurante
     if (
       !restaurant.getCnpj().equals(dto.cnpj()) &&
       restaurantRepository.existsByCnpj(dto.cnpj())
@@ -113,7 +120,6 @@ public class RestaurantService {
       );
     }
 
-    // Valida se o novo proprietário existe
     User owner = userRepository
       .findById(dto.ownerId())
       .orElseThrow(() ->
@@ -122,57 +128,83 @@ public class RestaurantService {
         )
       );
 
+    Address resolvedAddress = geocodingService.resolveAddress(dto.address());
+
     restaurant.setOwner(owner);
     restaurant.setTradeName(dto.tradeName());
     restaurant.setCnpj(dto.cnpj());
+    restaurant.setPhone(dto.phone());
     restaurant.setBaseDeliveryFee(dto.baseDeliveryFee());
-    restaurant.setLatitude(dto.latitude());
-    restaurant.setLongitude(dto.longitude());
+    restaurant.setLatitude(resolvedAddress.getLatitude());
+    restaurant.setLongitude(resolvedAddress.getLongitude());
+    restaurant.setAddress(resolvedAddress);
 
     Restaurant updatedRestaurant = restaurantRepository.save(restaurant);
     return RestaurantResponseDTO.fromEntity(updatedRestaurant);
   }
-  @CacheEvict(value = "restaurants", key = "#id")
-    @Transactional
-    public RestaurantResponseDTO patch(UUID id, RestaurantPatchRequestDTO dto) {
-        Restaurant restaurant = restaurantRepository.findById(id)
-                .orElseThrow(() -> new BusinessException("Restaurante não encontrado."));
 
+  @CacheEvict(value = "restaurants", allEntries = true)
+  @Transactional
+  public RestaurantResponseDTO patch(UUID id, RestaurantPatchRequestDTO dto) {
+    Restaurant restaurant = restaurantRepository
+      .findById(id)
+      .orElseThrow(() -> new BusinessException("Restaurante não encontrado."));
 
-        if (dto.tradeName() != null) {
-            restaurant.setTradeName(dto.tradeName());
-        }
-
-        if (dto.cnpj() != null) {
-            if (!restaurant.getCnpj().equals(dto.cnpj()) && restaurantRepository.existsByCnpj(dto.cnpj())) {
-                throw new BusinessException("Já existe outro restaurante cadastrado com este CNPJ.");
-            }
-            restaurant.setCnpj(dto.cnpj());
-        }
-
-        if (dto.ownerId() != null) {
-            User owner = userRepository.findById(dto.ownerId())
-                    .orElseThrow(() -> new BusinessException("Proprietário (User) não encontrado com o ID informado."));
-            restaurant.setOwner(owner);
-        }
-
-        if (dto.baseDeliveryFee() != null) {
-            restaurant.setBaseDeliveryFee(dto.baseDeliveryFee());
-        }
-
-        if (dto.latitude() != null) {
-            restaurant.setLatitude(dto.latitude());
-        }
-
-        if (dto.longitude() != null) {
-            restaurant.setLongitude(dto.longitude());
-        }
-
-        if (dto.isOpen() != null) {
-            restaurant.setIsOpen(dto.isOpen());
-        }
-
-        Restaurant updatedRestaurant = restaurantRepository.save(restaurant);
-        return RestaurantResponseDTO.fromEntity(updatedRestaurant);
+    if (dto.tradeName() != null) {
+      restaurant.setTradeName(dto.tradeName());
     }
+
+    if (dto.cnpj() != null) {
+      if (
+        !restaurant.getCnpj().equals(dto.cnpj()) &&
+        restaurantRepository.existsByCnpj(dto.cnpj())
+      ) {
+        throw new BusinessException(
+          "Já existe outro restaurante cadastrado com este CNPJ."
+        );
+      }
+      restaurant.setCnpj(dto.cnpj());
+    }
+
+    if (dto.phone() != null) {
+      if (
+        !restaurant.getPhone().equals(dto.phone()) &&
+        restaurantRepository.existsByPhone(dto.phone())
+      ) {
+        throw new BusinessException(
+          "Já existe outro restaurante cadastrado com este telefone."
+        );
+      }
+      restaurant.setPhone(dto.phone());
+    }
+
+    if (dto.ownerId() != null) {
+      User owner = userRepository
+        .findById(dto.ownerId())
+        .orElseThrow(() ->
+          new BusinessException(
+            "Proprietário (User) não encontrado com o ID informado."
+          )
+        );
+      restaurant.setOwner(owner);
+    }
+
+    if (dto.baseDeliveryFee() != null) {
+      restaurant.setBaseDeliveryFee(dto.baseDeliveryFee());
+    }
+
+    if (dto.address() != null) {
+      Address resolvedAddress = geocodingService.resolveAddress(dto.address());
+      restaurant.setLatitude(resolvedAddress.getLatitude());
+      restaurant.setLongitude(resolvedAddress.getLongitude());
+      restaurant.setAddress(resolvedAddress);
+    }
+
+    if (dto.isOpen() != null) {
+      restaurant.setIsOpen(dto.isOpen());
+    }
+
+    Restaurant updatedRestaurant = restaurantRepository.save(restaurant);
+    return RestaurantResponseDTO.fromEntity(updatedRestaurant);
+  }
 }

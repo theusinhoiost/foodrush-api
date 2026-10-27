@@ -4,16 +4,18 @@ import com.foodrush.api.security.JwtAuthenticationFilter;
 import com.foodrush.api.security.JwtTokenProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -52,14 +54,23 @@ public class SecurityConfig {
   public SecurityFilterChain securityFilterChain(HttpSecurity http)
     throws Exception {
     http
-      // Se a sua API for puramente stateless (JWT), geralmente o CSRF é desabilitado:
       .csrf(csrf -> csrf.disable())
+      .sessionManagement(session ->
+        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+      )
       .authorizeHttpRequests(auth ->
         auth
-          // Rotas públicas da sua aplicação (Auth, etc)
-          .requestMatchers("/api/v1/auth/**")
+          // Rotas públicas de autenticação (com e sem prefixo /api/v1 por conta do context-path)
+          .requestMatchers("/auth/**", "/api/v1/auth/**", "/error")
           .permitAll()
-          // LIBERAÇÕES DO SWAGGER / OPENAPI (Caminhos essenciais)
+          // Consulta pública de restaurantes (GET)
+          .requestMatchers(
+            HttpMethod.GET,
+            "/restaurants/**",
+            "/api/v1/restaurants/**"
+          )
+          .permitAll()
+          // Liberações do Swagger / OpenAPI
           .requestMatchers(
             "/v3/api-docs/**",
             "/swagger-ui/**",
@@ -71,6 +82,10 @@ public class SecurityConfig {
           // Qualquer outra rota exige autenticação com Bearer Token
           .anyRequest()
           .authenticated()
+      )
+      .addFilterBefore(
+        jwtAuthenticationFilter(),
+        UsernamePasswordAuthenticationFilter.class
       );
 
     return http.build();
