@@ -53,4 +53,5 @@ Utilize sempre o **Maven Wrapper** (`./mvnw`) na raiz do projeto:
 - Utilize os starters de teste já disponíveis no `pom.xml` (`spring-boot-starter-webmvc-test`, `spring-boot-starter-data-jpa-test`, `spring-boot-starter-security-test`, `spring-boot-starter-amqp-test`, `spring-boot-starter-data-redis-test`, `spring-boot-starter-flyway-test`).
 - Mantenha o `CHANGELOG.md` atualizado na seção `[Unreleased]` ao introduzir novas funcionalidades, correções ou mudanças significativas.
 - Toda parte de documentação sempre deve ser escrita em inglês.
+- Nenhum PR deve ser feito diretamente em `prod`. Todos os PRs devem ser feitos em `dev` e depois mergeados em `prod` após passar pelo processo de review.
 
