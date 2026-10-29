@@ -8,6 +8,24 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 ## [Unreleased]
 
 ### Added
+- **Mensageria com RabbitMQ para Restaurante, Entregador e Cliente (`config/RabbitMQConfig`, `event/`, `producer/`, `consumer/`):**
+  - Implementada Topic Exchange `foodrush.orders.exchange` para roteamento dinâmico de eventos do ciclo de vida dos pedidos.
+  - Criadas 3 filas dedicadas:
+    - `foodrush.restaurant.orders.queue`: consome `order.paid` e `order.canceled` para alertar a cozinha do restaurante.
+    - `foodrush.courier.dispatch.queue`: consome `order.ready` para despachar entregadores geograficamente próximos.
+    - `foodrush.customer.timeline.queue`: consome `order.*` para notificar o cliente sobre cada transição de status em tempo real.
+  - Implementada Dead Letter Exchange (DLX) `foodrush.orders.dlx` e DLQ `foodrush.orders.dlq` para mensagens com falha persistente.
+  - Criado o evento imutável `OrderStatusChangedEvent` e o produtor `OrderEventProducer`.
+  - Criados os consumidores `RestaurantOrderConsumer`, `CourierDispatchConsumer` e `CustomerTimelineConsumer`.
+  - Adicionado status `READY` ao enum `OrderStatus`.
+  - Adicionados testes unitários para o produtor e consumidores.
+- **Observabilidade e Métricas com Prometheus e Grafana (`docker/`, `pom.xml`, `application.yml`, `config/SecurityConfig`):**
+  - Adicionadas dependências `spring-boot-starter-actuator` e `micrometer-registry-prometheus` no `pom.xml`.
+  - Configurados endpoints do Actuator (`health`, `info`, `metrics`, `prometheus`) e histograma de percentis de requisições HTTP (`percentiles-histogram`) no `application.yml`.
+  - Liberados os endpoints do Actuator (`/actuator/**`, `/api/v1/actuator/**`) no `SecurityConfig`.
+  - Criado arquivo de configuração `docker/prometheus/prometheus.yml` configurado para coletar métricas da aplicação.
+  - Criado provisionamento automático do datasource Prometheus para o Grafana em `docker/grafana/provisioning/datasources/prometheus.yml`.
+  - Adicionados os serviços do `prometheus` (porta `9090`) e `grafana` (porta `3000`) com volumes persistentes no `docker-compose.yml`.
 - **Endereços, Geolocalização Automática e Seed do Banco (`model/Address`, `service/GeocodingService`, `db/migration/`):**
   - Unificada a tabela `addresses` e chaves estrangeiras `address_id` (`users` e `restaurants`) diretamente em `V1__init_schema.sql`.
   - Criada migração `V2__seed_mock_data.sql` com massa de dados inicial (endereços, usuários de todos os perfis com senha `123456`, restaurantes, itens de cardápio, tamanhos, complementos e pedido de exemplo).
@@ -43,31 +61,19 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
   - Implementado `GlobalExceptionHandler` (`@RestControllerAdvice`) retornando respostas padronizadas no formato **RFC 7807 (`ProblemDetail`)** para erros de negócio (`422`), erros de validação de campos (`400`) e erros internos (`500`).
 - **Domínio, Persistência e Migrações (`enums/`, `model/`, `repository/`, `db/migration/`):**
   - Criada migração Flyway `V1__init_schema.sql` contendo as tabelas `users`, `restaurants`, `menu_items`, `menu_item_sizes`, `complement_groups`, `complement_items`, `orders`, `order_items` e `order_item_complements`, além de índices de performance.
-  - Adicionados enums `RoleType` (`CUSTOMER`, `RESTAURANT_OWNER`, `DELIVERY_DRIVER`, `ADMIN`) e `OrderStatus` (`CREATED`, `CONFIRMED`, `IN_PREPARATION`, `READY_FOR_PICKUP`, `OUT_FOR_DELIVERY`, `DELIVERED`, `CANCELLED`).
+  - Adicionados enums `RoleType` (`CUSTOMER`, `RESTAURANT_OWNER`, `DELIVERY_DRIVER`, `ADMIN`) e `OrderStatus` (`CREATED`, `PAID`, `PREPARING`, `READY`, `IN_ROUTE`, `DELIVERED`, `CANCELED`).
   - Implementadas entidades JPA: `User`, `Restaurant`, `MenuItem`, `MenuItemSize` (com `@Version` para lock otimista), `ComplementGroup`, `ComplementItem`, `Order` (com `idempotencyKey`), `OrderItem` e `OrderItemComplement`.
   - Implementados repositórios Spring Data JPA: `UserRepository`, `RestaurantRepository`, `MenuItemRepository`, `MenuItemSizeRepository` (com lock pessimista `PESSIMISTIC_WRITE`), `ComplementGroupRepository`, `ComplementItemRepository` e `OrderRepository`.
 - **Infraestrutura e Documentação:**
-  - Adicionado `docker-compose.yml` com containers e healthchecks para PostgreSQL 17 (`foodrush_db`), Redis 7 e RabbitMQ 4 Management.
+  - Adicionado `docker-compose.yml` com containers e healthchecks para PostgreSQL 17 (`foodrush_db`), Redis 7, RabbitMQ 4 Management, Prometheus e Grafana.
   - Adicionados `README.md`, `CHANGELOG.md` e `AGENTS.md`.
 
 ### Fixed
+- Corrigido `AuthControllerTest` com testes unitários para registro, duplicidades de dados, login e renovação de token.
 - Ajustado mapeamento do relacionamento `@ManyToOne` de proprietário (`User owner`) em `Restaurant`, `RestaurantService` e `RestaurantResponseDTO`, removendo mapeamento duplicado da coluna `owner_id`.
 - Corrigido `java.lang.VerifyError: Constructor must call super() or this() before return` na geração de construtores do Lombok com ECJ/Java 25 nas entidades JPA, além de substituir `@Data` por `@Getter` e `@Setter`.
 - Configurado `maven.compiler.source` e `maven.compiler.target` no `pom.xml` para evitar falha `release version 25 not supported` em ambientes sem `ct.sym`.
 - Ajustado `application.yml` com variáveis de ambiente, `spring.jpa.open-in-view: false` e remoção da propriedade depreciada `hibernate.dialect`.
 
 ## [0.0.1-SNAPSHOT] - 2026-10-16
-
-### Added
-- Inicialização da estrutura do projeto com Apache Maven e Maven Wrapper (`mvnw` / `mvnw.cmd`).
-- Configuração base do **Spring Boot 4.1.1** com **Java 25** (`com.foodrush:api`).
-- Dependências principais configuradas no `pom.xml`:
-  - Spring Web MVC (`spring-boot-starter-webmvc`)
-  - Spring Data JPA (`spring-boot-starter-data-jpa`) e driver PostgreSQL (`postgresql`)
-  - Flyway para migrações de banco de dados (`spring-boot-starter-flyway`, `flyway-database-postgresql`)
-  - Spring Data Redis (`spring-boot-starter-data-redis`)
-  - Spring AMQP para mensageria com RabbitMQ (`spring-boot-starter-amqp`)
-  - Spring Security (`spring-boot-starter-security`)
-  - Bean Validation (`spring-boot-starter-validation`)
-  - Lombok e Spring Boot Configuration Processor
-- Classe principal `ApiApplication` e estrutura inicial de testes com `ApiApplicationTests`.
+- Initial release.
