@@ -11,7 +11,8 @@ API RESTful de delivery de comida (**FoodRush**), construída com **Java 25** e 
   - PostgreSQL 17 (`org.postgresql:postgresql`)
   - Flyway Migrations (`spring-boot-starter-flyway`, `flyway-database-postgresql`)
 - **Cache & NoSQL:** Spring Cache (`spring-boot-starter-cache`) & Spring Data Redis (`spring-boot-starter-data-redis`)
-- **Mensageria:** Spring AMQP / RabbitMQ (`spring-boot-starter-amqp`)
+- **Mensageria & Filas:** Spring AMQP / RabbitMQ (`spring-boot-starter-amqp`) com Topic Exchange, Dead Letter Exchange (DLX/DLQ) e mensagens em JSON
+- **Observabilidade & Métricas:** Spring Boot Actuator (`spring-boot-starter-actuator`), Micrometer Prometheus (`micrometer-registry-prometheus`), Prometheus e Grafana
 - **Segurança & Autenticação:**
   - Spring Security (`spring-boot-starter-security`)
   - JSON Web Token — JJWT `0.12.6` (`jjwt-api`, `jjwt-impl`, `jjwt-jackson`) com assinatura `HS512` e senhas criptografadas via `BCrypt`
@@ -31,12 +32,24 @@ API RESTful de delivery de comida (**FoodRush**), construída com **Java 25** e 
 
 ```text
 foodrush-api/
+├── docker/
+│   ├── grafana/
+│   │   └── provisioning/
+│   │       └── datasources/
+│   │           └── prometheus.yml
+│   └── prometheus/
+│       └── prometheus.yml
 ├── src/
 │   ├── main/
 │   │   ├── java/com/foodrush/api/
 │   │   │   ├── config/
 │   │   │   │   ├── OpenApiConfig.java
+│   │   │   │   ├── RabbitMQConfig.java
 │   │   │   │   └── SecurityConfig.java
+│   │   │   ├── consumer/
+│   │   │   │   ├── CourierDispatchConsumer.java
+│   │   │   │   ├── CustomerTimelineConsumer.java
+│   │   │   │   └── RestaurantOrderConsumer.java
 │   │   │   ├── controller/
 │   │   │   │   ├── AuthController.java
 │   │   │   │   └── RestaurantController.java
@@ -54,6 +67,8 @@ foodrush-api/
 │   │   │   ├── enums/
 │   │   │   │   ├── OrderStatus.java
 │   │   │   │   └── RoleType.java
+│   │   │   ├── event/
+│   │   │   │   └── OrderStatusChangedEvent.java
 │   │   │   ├── exception/
 │   │   │   │   ├── BusinessException.java
 │   │   │   │   └── GlobalExceptionHandler.java
@@ -67,6 +82,8 @@ foodrush-api/
 │   │   │   │   ├── OrderItemComplement.java
 │   │   │   │   ├── Restaurant.java
 │   │   │   │   └── User.java
+│   │   │   ├── producer/
+│   │   │   │   └── OrderEventProducer.java
 │   │   │   ├── repository/
 │   │   │   │   ├── ComplementGroupRepository.java
 │   │   │   │   ├── ComplementItemRepository.java
@@ -95,6 +112,14 @@ foodrush-api/
 │   │       └── application.yml
 │   └── test/
 │       └── java/com/foodrush/api/
+│           ├── consumer/
+│           │   └── OrderConsumersTest.java
+│           ├── controller/
+│           │   └── AuthControllerTest.java
+│           ├── producer/
+│           │   └── OrderEventProducerTest.java
+│           ├── service/
+│           │   └── RestaurantService.java
 │           └── ApiApplicationTests.java
 ├── docker-compose.yml
 ├── pom.xml
@@ -118,10 +143,16 @@ foodrush-api/
    cd foodrush-api
    ```
 
-2. **Suba os serviços de infraestrutura (PostgreSQL, Redis e RabbitMQ):**
+2. **Suba os serviços de infraestrutura (PostgreSQL, Redis, RabbitMQ, Prometheus e Grafana):**
    ```bash
    docker compose up -d
    ```
+   Isso iniciará:
+   - **PostgreSQL 17:** `localhost:5432`
+   - **Redis 7:** `localhost:6379`
+   - **RabbitMQ 4 Management:** `localhost:5672` (Painel Web: `http://localhost:15672` — `guest`/`guest`)
+   - **Prometheus:** `http://localhost:9090`
+   - **Grafana:** `http://localhost:3000` (Login: `admin` / `admin`)
 
 3. **Variáveis de ambiente (opcional):**
    O arquivo `src/main/resources/application.yml` já possui valores padrão para desenvolvimento local, podendo ser sobrescritos via variáveis de ambiente:
@@ -171,6 +202,37 @@ Com a aplicação em execução, acesse a interface do **Swagger UI** em:
 | `GET` | `/api/v1/restaurants/{id}` | Busca os detalhes de um restaurante por ID (com suporte a cache `restaurants`) | Bearer JWT |
 | `PUT` | `/api/v1/restaurants/{id}` | Atualiza os dados cadastrais e geolocalização de um restaurante | Bearer JWT |
 | `PATCH` | `/api/v1/restaurants/{id}/toggle-open` | Alterna o status operacional (`isOpen`) do restaurante (aberto/fechado) | Bearer JWT |
+
+## Mensageria Orientada a Eventos (RabbitMQ)
+
+A aplicação utiliza uma **Topic Exchange** (`foodrush.orders.exchange`) para notificar os diferentes atores da plataforma de forma assíncrona e desacoplada conforme o ciclo de vida do pedido:
+
+- **Exchange:** `foodrush.orders.exchange` (Topic Exchange)
+- **Dead Letter Exchange (DLX):** `foodrush.orders.dlx` / **DLQ:** `foodrush.orders.dlq`
+- **Filas e Atores:**
+  - **Restaurante (`foodrush.restaurant.orders.queue`):**
+    - Bindings: `order.paid`, `order.canceled`
+    - Notifica a cozinha/KDS sobre novos pedidos para preparo ou cancelamentos.
+  - **Entregador / Despacho (`foodrush.courier.dispatch.queue`):**
+    - Binding: `order.ready`
+    - Aciona o motor de despacho e busca por entregadores geograficamente próximos assim que o prato está pronto.
+  - **Cliente (`foodrush.customer.timeline.queue`):**
+    - Binding: `order.*`
+    - Recebe todas as transições de status do pedido para envio de notificações Push/SMS e atualização do app em tempo real.
+
+## Observabilidade e Monitoramento (Prometheus & Grafana)
+
+A API integra métricas completas via **Spring Boot Actuator** e exportador **Micrometer Prometheus**:
+
+- **Endpoints do Actuator:**
+  - Healthcheck: [http://localhost:8080/api/v1/actuator/health](http://localhost:8080/api/v1/actuator/health) (exibe saúde de DB, Redis, RabbitMQ e disco)
+  - Métricas Prometheus: [http://localhost:8080/api/v1/actuator/prometheus](http://localhost:8080/api/v1/actuator/prometheus)
+  - Métricas gerais: [http://localhost:8080/api/v1/actuator/metrics](http://localhost:8080/api/v1/actuator/metrics)
+- **Prometheus:** [http://localhost:9090](http://localhost:9090)
+  - Coleta automática a cada 5s configurada em `docker/prometheus/prometheus.yml`.
+- **Grafana:** [http://localhost:3000](http://localhost:3000) (Usuário: `admin` / Senha: `admin`)
+  - Datasource do Prometheus já provisionado automaticamente em `docker/grafana/provisioning/datasources/prometheus.yml`.
+  - Recomendado importar o dashboard oficial da comunidade **JVM (Micrometer)** através do ID **`4701`** para visualização gráfica de uso de CPU, memória heap, latência HTTP (p95, p99), pools de conexão HikariCP e filas.
 
 ## Executando os Testes
 
