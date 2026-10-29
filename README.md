@@ -1,34 +1,34 @@
 # FoodRush API
 
-API RESTful de delivery de comida (**FoodRush**), construída com **Java 25** e **Spring Boot 4.1.1**, focada em alta concorrência, consistência transacional, cache distribuído com Redis, segurança stateless via JWT e arquitetura orientada a eventos.
+RESTful food delivery API (**FoodRush**), built with **Java 25** and **Spring Boot 4.1.1**, designed for high concurrency, transactional consistency, distributed caching with Redis, stateless security via JWT, and event-driven architecture with RabbitMQ.
 
-## Stack Tecnológica
+## Tech Stack
 
-- **Linguagem:** Java 25
+- **Language:** Java 25
 - **Framework:** Spring Boot 4.1.1 (`spring-boot-starter-webmvc`)
-- **Persistência & Banco de Dados:**
+- **Persistence & Database:**
   - Spring Data JPA / Hibernate (`spring-boot-starter-data-jpa`)
   - PostgreSQL 17 (`org.postgresql:postgresql`)
   - Flyway Migrations (`spring-boot-starter-flyway`, `flyway-database-postgresql`)
 - **Cache & NoSQL:** Spring Cache (`spring-boot-starter-cache`) & Spring Data Redis (`spring-boot-starter-data-redis`)
-- **Mensageria & Filas:** Spring AMQP / RabbitMQ (`spring-boot-starter-amqp`) com Topic Exchange, Dead Letter Exchange (DLX/DLQ) e mensagens em JSON
-- **Observabilidade & Métricas:** Spring Boot Actuator (`spring-boot-starter-actuator`), Micrometer Prometheus (`micrometer-registry-prometheus`), Prometheus e Grafana
-- **Segurança & Autenticação:**
+- **Messaging & Queues:** Spring AMQP / RabbitMQ (`spring-boot-starter-amqp`) with Topic Exchange, Dead Letter Exchange (DLX/DLQ), and JSON serialization
+- **Observability & Metrics:** Spring Boot Actuator (`spring-boot-starter-actuator`), Micrometer Prometheus (`micrometer-registry-prometheus`), Prometheus, and Grafana
+- **Security & Authentication:**
   - Spring Security (`spring-boot-starter-security`)
-  - JSON Web Token — JJWT `0.12.6` (`jjwt-api`, `jjwt-impl`, `jjwt-jackson`) com assinatura `HS512` e senhas criptografadas via `BCrypt`
-- **Documentação da API (OpenAPI / Swagger):**
-  - SpringDoc OpenAPI `2.8.5` (`springdoc-openapi-starter-webmvc-ui`) com suporte a autenticação Bearer JWT
-- **Validação & Tratamento de Erros:**
-  - Jakarta Bean Validation (`spring-boot-starter-validation`) + validadores customizados (`@ValidCPF`, `@ValidCNPJ`, `@ValidPhone`)
-  - Respostas padronizadas com **RFC 7807 (`ProblemDetail`)** via `GlobalExceptionHandler`
-- **Produtividade & Build:** Lombok, Spring Boot Configuration Processor e Apache Maven (`./mvnw`)
+  - JSON Web Token — JJWT `0.12.6` (`jjwt-api`, `jjwt-impl`, `jjwt-jackson`) with `HS512` signature and `BCrypt` password hashing
+- **API Documentation (OpenAPI / Swagger):**
+  - SpringDoc OpenAPI `2.8.5` (`springdoc-openapi-starter-webmvc-ui`) with HTTP Bearer JWT authentication support
+- **Validation & Error Handling:**
+  - Jakarta Bean Validation (`spring-boot-starter-validation`) + custom constraint validators (`@ValidCPF`, `@ValidCNPJ`, `@ValidPhone`, `@ValidCEP`)
+  - Standardized responses using **RFC 7807 (`ProblemDetail`)** via `GlobalExceptionHandler`
+- **Productivity & Build:** Lombok, Spring Boot Configuration Processor, and Apache Maven (`./mvnw`)
 
-## Pré-requisitos
+## Prerequisites
 
-- **JDK 25** instalado
-- **Docker** e **Docker Compose** (para subir PostgreSQL, Redis e RabbitMQ localmente)
+- **JDK 25** installed
+- **Docker** & **Docker Compose** (to run PostgreSQL, Redis, RabbitMQ, Prometheus, and Grafana locally)
 
-## Estrutura do Projeto
+## Project Structure
 
 ```text
 foodrush-api/
@@ -52,15 +52,19 @@ foodrush-api/
 │   │   │   │   └── RestaurantOrderConsumer.java
 │   │   │   ├── controller/
 │   │   │   │   ├── AuthController.java
-│   │   │   │   └── RestaurantController.java
+│   │   │   │   ├── RestaurantController.java
+│   │   │   │   └── UserController.java
 │   │   │   ├── dto/
 │   │   │   │   ├── request/
+│   │   │   │   │   ├── AddressRequestDTO.java
 │   │   │   │   │   ├── LoginRequestDTO.java
 │   │   │   │   │   ├── RefreshTokenRequestDTO.java
 │   │   │   │   │   ├── RestaurantPatchRequestDTO.java
 │   │   │   │   │   ├── RestaurantRequestDTO.java
+│   │   │   │   │   ├── UserPatchRequestDTO.java
 │   │   │   │   │   └── UserRequestDTO.java
 │   │   │   │   └── response/
+│   │   │   │       ├── AddressResponseDTO.java
 │   │   │   │       ├── AuthResponseDTO.java
 │   │   │   │       ├── RestaurantResponseDTO.java
 │   │   │   │       └── UserResponseDTO.java
@@ -73,6 +77,7 @@ foodrush-api/
 │   │   │   │   ├── BusinessException.java
 │   │   │   │   └── GlobalExceptionHandler.java
 │   │   │   ├── model/
+│   │   │   │   ├── Address.java
 │   │   │   │   ├── ComplementGroup.java
 │   │   │   │   ├── ComplementItem.java
 │   │   │   │   ├── MenuItem.java
@@ -85,6 +90,7 @@ foodrush-api/
 │   │   │   ├── producer/
 │   │   │   │   └── OrderEventProducer.java
 │   │   │   ├── repository/
+│   │   │   │   ├── AddressRepository.java
 │   │   │   │   ├── ComplementGroupRepository.java
 │   │   │   │   ├── ComplementItemRepository.java
 │   │   │   │   ├── MenuItemRepository.java
@@ -97,18 +103,23 @@ foodrush-api/
 │   │   │   │   ├── JwtTokenProvider.java
 │   │   │   │   └── UserDetailsServiceImpl.java
 │   │   │   ├── service/
-│   │   │   │   └── RestaurantService.java
+│   │   │   │   ├── GeocodingService.java
+│   │   │   │   ├── RestaurantService.java
+│   │   │   │   └── UserService.java
 │   │   │   ├── validation/
+│   │   │   │   ├── CepValidatorConstraint.java
 │   │   │   │   ├── CnpjValidatorConstraint.java
 │   │   │   │   ├── CpfValidatorConstraint.java
 │   │   │   │   ├── PhoneValidatorConstraint.java
+│   │   │   │   ├── ValidCEP.java
 │   │   │   │   ├── ValidCNPJ.java
 │   │   │   │   ├── ValidCPF.java
 │   │   │   │   └── ValidPhone.java
 │   │   │   └── ApiApplication.java
 │   │   └── resources/
 │   │       ├── db/migration/
-│   │       │   └── V1__init_schema.sql
+│   │       │   ├── V1__init_schema.sql
+│   │       │   └── V2__seed_mock_data.sql
 │   │       └── application.yml
 │   └── test/
 │       └── java/com/foodrush/api/
@@ -119,136 +130,157 @@ foodrush-api/
 │           ├── producer/
 │           │   └── OrderEventProducerTest.java
 │           ├── service/
-│           │   └── RestaurantService.java
+│           │   ├── RestaurantServiceTest.java
+│           │   └── UserServiceTest.java
 │           └── ApiApplicationTests.java
+├── .env.example
 ├── docker-compose.yml
 ├── pom.xml
 ├── mvnw
 └── mvnw.cmd
 ```
 
-## Modelo de Dados (Flyway `V1__init_schema.sql`)
+## Data Model (Flyway Migrations)
 
-- **`users`**: Credenciais, identificadores únicos (`email`, `phone`, `cpf`) e perfis de acesso (`CUSTOMER`, `RESTAURANT_OWNER`, `DELIVERY_DRIVER`, `ADMIN`).
-- **`restaurants`**: Dados do restaurante (`trade_name`, `cnpj`, `phone`), vínculo com o proprietário (`owner_id`), geolocalização (`latitude`, `longitude`), taxa base de entrega (`base_delivery_fee`) e status de funcionamento (`is_open`).
-- **`menu_items` & `menu_item_sizes`**: Itens do cardápio e variações de tamanho/porção com controle de estoque e concorrência (`version` para lock otimista e query com `PESSIMISTIC_WRITE` para evitar *overselling*).
-- **`complement_groups` & `complement_items`**: Grupos de complementos/adicionais com regras de quantidade mínima/máxima e obrigatoriedade.
-- **`orders`, `order_items` & `order_item_complements`**: Pedidos com chave de idempotência (`idempotency_key`), valores consolidados (`subtotal`, `delivery_fee`, `total`), itens e snapshot histórico de complementos.
+- **`addresses`**: Postal code (`cep`), street details, number, complement, neighborhood, city, state (`UF`), and geolocation coordinates (`latitude`, `longitude`).
+- **`users`**: Credentials, unique personal identifiers (`email`, `phone`, `cpf`), access roles (`CUSTOMER`, `RESTAURANT_OWNER`, `DELIVERY_DRIVER`, `ADMIN`), and optional reference to `address_id`.
+- **`restaurants`**: Restaurant profile (`trade_name`, `cnpj`, `phone`), owner reference (`owner_id`), address reference (`address_id`), geolocation (`latitude`, `longitude`), base delivery fee (`base_delivery_fee`), and operational status (`is_open`).
+- **`menu_items` & `menu_item_sizes`**: Catalog items and size variations with optimistic lock (`version`) and pessimistic lock query (`PESSIMISTIC_WRITE`) to prevent overselling.
+- **`complement_groups` & `complement_items`**: Add-on groups with min/max selection quantities and requirement flags.
+- **`orders`, `order_items` & `order_item_complements`**: Orders with idempotency key (`idempotency_key`), consolidated financial totals (`subtotal`, `delivery_fee`, `total`), line items, and historical add-on price snapshots.
 
-## Configuração e Execução
+## Configuration and Setup
 
-1. **Clone o repositório:**
+1. **Clone the repository:**
    ```bash
    git clone https://github.com/theusinhoiost/foodrush-api.git
    cd foodrush-api
    ```
 
-2. **Suba os serviços de infraestrutura (PostgreSQL, Redis, RabbitMQ, Prometheus e Grafana):**
+2. **Configure Environment Variables:**
+   Copy the example `.env.example` file to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+   Default values for local development:
+   | Variable | Default Value | Description |
+   | :--- | :--- | :--- |
+   | `POSTGRES_DB` | `foodrush_db` | PostgreSQL database name |
+   | `POSTGRES_USER` | `postgres` | PostgreSQL username |
+   | `POSTGRES_PASSWORD` | `postgres` | PostgreSQL password |
+   | `POSTGRES_PORT` | `5432` | PostgreSQL external port |
+   | `REDIS_PORT` | `6379` | Redis external port |
+   | `RABBITMQ_DEFAULT_USER` | `guest` | RabbitMQ administrative user |
+   | `RABBITMQ_DEFAULT_PASS` | `guest` | RabbitMQ administrative password |
+   | `RABBITMQ_PORT` | `5672` | RabbitMQ AMQP port |
+   | `RABBITMQ_MANAGEMENT_PORT`| `15672` | RabbitMQ Management Web UI port |
+   | `PROMETHEUS_PORT` | `9090` | Prometheus external port |
+   | `GRAFANA_PORT` | `3000` | Grafana external port |
+   | `GRAFANA_ADMIN_USER` | `admin` | Grafana administrator username |
+   | `GRAFANA_ADMIN_PASSWORD` | `admin` | Grafana administrator password |
+
+3. **Start Infrastructure Services with Docker Compose:**
    ```bash
    docker compose up -d
    ```
-   Isso iniciará:
+   This will spin up:
    - **PostgreSQL 17:** `localhost:5432`
    - **Redis 7:** `localhost:6379`
-   - **RabbitMQ 4 Management:** `localhost:5672` (Painel Web: `http://localhost:15672` — `guest`/`guest`)
+   - **RabbitMQ 4 Management:** `localhost:5672` (Management UI: `http://localhost:15672` — `guest`/`guest`)
    - **Prometheus:** `http://localhost:9090`
    - **Grafana:** `http://localhost:3000` (Login: `admin` / `admin`)
 
-3. **Variáveis de ambiente (opcional):**
-   O arquivo `src/main/resources/application.yml` já possui valores padrão para desenvolvimento local, podendo ser sobrescritos via variáveis de ambiente:
-   | Variável | Padrão Local | Descrição |
-   | :--- | :--- | :--- |
-   | `DB_URL` | `jdbc:postgresql://localhost:5432/foodrush_db` | URL JDBC do PostgreSQL |
-   | `DB_USERNAME` | `postgres` | Usuário do banco de dados |
-   | `DB_PASSWORD` | `postgres` | Senha do banco de dados |
-   | `REDIS_HOST` | `localhost` | Host do Redis |
-   | `REDIS_PORT` | `6379` | Porta do Redis |
-   | `RABBITMQ_HOST` | `localhost` | Host do RabbitMQ |
-   | `RABBITMQ_PORT` | `5672` | Porta AMQP do RabbitMQ |
-   | `RABBITMQ_USERNAME` | `guest` | Usuário do RabbitMQ |
-   | `RABBITMQ_PASSWORD` | `guest` | Senha do RabbitMQ |
-
-4. **Compile e execute a aplicação:**
+4. **Build and Run the Application:**
    ```bash
    ./mvnw clean compile
    ./mvnw spring-boot:run
    ```
-   Ou execute diretamente a classe `com.foodrush.api.ApiApplication` pela IDE.
+   Or run the main class `com.foodrush.api.ApiApplication` directly from your IDE.
 
-## Documentação Interativa (Swagger / OpenAPI)
+## Interactive API Documentation (Swagger / OpenAPI)
 
-Com a aplicação em execução, acesse a interface do **Swagger UI** em:
+Once the application is running, access Swagger UI at:
 
-- **Swagger UI (Restaurantes / Create):** [http://localhost:8080/api/v1/swagger-ui/index.html#/restaurant-controller/create](http://localhost:8080/api/v1/swagger-ui/index.html#/restaurant-controller/create)
-- **Atalho Swagger UI:** `http://localhost:8080/api/v1/docs`
+- **Swagger UI:** [http://localhost:8080/api/v1/swagger-ui/index.html](http://localhost:8080/api/v1/swagger-ui/index.html)
+- **Swagger UI Shortcut:** `http://localhost:8080/api/v1/docs`
 - **OpenAPI JSON Spec:** `http://localhost:8080/api/v1/docs/json`
 
-## Endpoints da API
+## API Endpoints
 
-### Autenticação (`/api/v1/auth`)
+### Authentication (`/api/v1/auth`)
 
-| Método | Rota | Descrição | Autenticação |
+| Method | Endpoint | Description | Auth |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/auth/register` | Cadastro de novo usuário (`UserRequestDTO` com validação `@ValidCPF` e `@ValidPhone`) | Pública |
-| `POST` | `/api/v1/auth/login` | Autenticação e emissão de `accessToken` + `refreshToken` (`LoginRequestDTO`) | Pública |
-| `POST` | `/api/v1/auth/refresh` | Renovação do `accessToken` via `refreshToken` (`RefreshTokenRequestDTO`) | Pública |
+| `POST` | `/api/v1/auth/register` | Register new user account (`UserRequestDTO` with CEP geocoding) | Public |
+| `POST` | `/api/v1/auth/login` | Authenticate user and issue JWT `accessToken` + `refreshToken` | Public |
+| `POST` | `/api/v1/auth/refresh` | Renew short-lived `accessToken` using valid `refreshToken` | Public |
 
-### Restaurantes (`/api/v1/restaurants`)
+### Users (`/api/v1/users`)
 
-| Método | Rota | Descrição | Autenticação |
+| Method | Endpoint | Description | Auth |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/restaurants` | Cadastra um novo restaurante (`RestaurantRequestDTO` com `@ValidCNPJ` e `@ValidPhone`) | Bearer JWT |
-| `GET` | `/api/v1/restaurants` | Lista todos os restaurantes cadastrados (com suporte a cache `restaurants`) | Bearer JWT |
-| `GET` | `/api/v1/restaurants/{id}` | Busca os detalhes de um restaurante por ID (com suporte a cache `restaurants`) | Bearer JWT |
-| `PUT` | `/api/v1/restaurants/{id}` | Atualiza os dados cadastrais e geolocalização de um restaurante | Bearer JWT |
-| `PATCH` | `/api/v1/restaurants/{id}/toggle-open` | Alterna o status operacional (`isOpen`) do restaurante (aberto/fechado) | Bearer JWT |
+| `GET` | `/api/v1/users` | List all registered users (cached in `users`) | Bearer JWT |
+| `GET` | `/api/v1/users/{id}` | Find user details by ID (cached in `users`) | Bearer JWT |
+| `PUT` | `/api/v1/users/{id}` | Full update of user profile and address details | Bearer JWT |
+| `PATCH`| `/api/v1/users/{id}` | Partial update of user profile fields | Bearer JWT |
+| `PATCH`| `/api/v1/users/{id}/toggle-active` | Toggle user active status (activate/deactivate) | Bearer JWT |
 
-## Mensageria Orientada a Eventos (RabbitMQ)
+### Restaurants (`/api/v1/restaurants`)
 
-A aplicação utiliza uma **Topic Exchange** (`foodrush.orders.exchange`) para notificar os diferentes atores da plataforma de forma assíncrona e desacoplada conforme o ciclo de vida do pedido:
+| Method | Endpoint | Description | Auth |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/v1/restaurants` | Register new restaurant (`RestaurantRequestDTO` with CEP geocoding) | Bearer JWT |
+| `GET` | `/api/v1/restaurants` | List all restaurants (cached in `restaurants`) | Public |
+| `GET` | `/api/v1/restaurants/{id}` | Find restaurant details by ID (cached in `restaurants`) | Public |
+| `PUT` | `/api/v1/restaurants/{id}` | Update restaurant profile, contact, and address | Bearer JWT |
+| `PATCH`| `/api/v1/restaurants/{id}/toggle-open` | Toggle restaurant operational status (open/closed) | Bearer JWT |
+
+## Event-Driven Messaging (RabbitMQ)
+
+The application uses a **Topic Exchange** (`foodrush.orders.exchange`) to publish order lifecycle events asynchronously and decoupled to platform actors:
 
 - **Exchange:** `foodrush.orders.exchange` (Topic Exchange)
 - **Dead Letter Exchange (DLX):** `foodrush.orders.dlx` / **DLQ:** `foodrush.orders.dlq`
-- **Filas e Atores:**
-  - **Restaurante (`foodrush.restaurant.orders.queue`):**
+- **Queues and Actors:**
+  - **Restaurant (`foodrush.restaurant.orders.queue`):**
     - Bindings: `order.paid`, `order.canceled`
-    - Notifica a cozinha/KDS sobre novos pedidos para preparo ou cancelamentos.
-  - **Entregador / Despacho (`foodrush.courier.dispatch.queue`):**
+    - Alerts the kitchen display system (KDS) for preparation or cancellation.
+  - **Courier / Dispatch (`foodrush.courier.dispatch.queue`):**
     - Binding: `order.ready`
-    - Aciona o motor de despacho e busca por entregadores geograficamente próximos assim que o prato está pronto.
-  - **Cliente (`foodrush.customer.timeline.queue`):**
+    - Triggers the dispatch engine to locate and notify nearby couriers once food is ready.
+  - **Customer (`foodrush.customer.timeline.queue`):**
     - Binding: `order.*`
-    - Recebe todas as transições de status do pedido para envio de notificações Push/SMS e atualização do app em tempo real.
+    - Receives all order status transitions to broadcast real-time Push/SMS notifications to the customer app.
 
-## Observabilidade e Monitoramento (Prometheus & Grafana)
+## Observability & Monitoring (Prometheus & Grafana)
 
-A API integra métricas completas via **Spring Boot Actuator** e exportador **Micrometer Prometheus**:
+The API provides full metrics via **Spring Boot Actuator** and **Micrometer Prometheus**:
 
-- **Endpoints do Actuator:**
-  - Healthcheck: [http://localhost:8080/api/v1/actuator/health](http://localhost:8080/api/v1/actuator/health) (exibe saúde de DB, Redis, RabbitMQ e disco)
-  - Métricas Prometheus: [http://localhost:8080/api/v1/actuator/prometheus](http://localhost:8080/api/v1/actuator/prometheus)
-  - Métricas gerais: [http://localhost:8080/api/v1/actuator/metrics](http://localhost:8080/api/v1/actuator/metrics)
+- **Actuator Endpoints:**
+  - Healthcheck: [http://localhost:8080/api/v1/actuator/health](http://localhost:8080/api/v1/actuator/health) (Database, Redis, RabbitMQ, Disk)
+  - Prometheus metrics: [http://localhost:8080/api/v1/actuator/prometheus](http://localhost:8080/api/v1/actuator/prometheus)
+  - Metrics index: [http://localhost:8080/api/v1/actuator/metrics](http://localhost:8080/api/v1/actuator/metrics)
 - **Prometheus:** [http://localhost:9090](http://localhost:9090)
-  - Coleta automática a cada 5s configurada em `docker/prometheus/prometheus.yml`.
-- **Grafana:** [http://localhost:3000](http://localhost:3000) (Usuário: `admin` / Senha: `admin`)
-  - Datasource do Prometheus já provisionado automaticamente em `docker/grafana/provisioning/datasources/prometheus.yml`.
-  - Recomendado importar o dashboard oficial da comunidade **JVM (Micrometer)** através do ID **`4701`** para visualização gráfica de uso de CPU, memória heap, latência HTTP (p95, p99), pools de conexão HikariCP e filas.
+  - Automatic 5s scrape configured in `docker/prometheus/prometheus.yml`.
+- **Grafana:** [http://localhost:3000](http://localhost:3000) (User: `admin` / Password: `admin`)
+  - Prometheus datasource pre-configured via `docker/grafana/provisioning/datasources/prometheus.yml`.
+  - Recommended community dashboard: import dashboard ID **`4701`** (JVM Micrometer) for real-time visualization of CPU, heap memory, HTTP request latency percentiles (p95, p99), and connection pools.
 
-## Executando os Testes
+## Running Tests
 
 ```bash
 ./mvnw test
 ```
 
-## Empacotamento / Build
+## Packaging & Build
 
-Para gerar o artefato `.jar` de produção:
+To generate a production `.jar` artifact:
 
 ```bash
 ./mvnw clean package
 ```
 
-Para construir uma imagem OCI/Docker utilizando o plugin do Spring Boot:
+To build an OCI/Docker container image using Spring Boot buildpacks:
 
 ```bash
 ./mvnw spring-boot:build-image
