@@ -79,6 +79,9 @@ public class SecurityConfig {
             "/docs/**"
           )
           .permitAll()
+          // Endpoints de métricas e saúde (Actuator / Prometheus)
+          .requestMatchers("/actuator/**", "/api/v1/actuator/**")
+          .permitAll()
           // Qualquer outra rota exige autenticação com Bearer Token
           .anyRequest()
           .authenticated()
